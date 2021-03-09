@@ -1,0 +1,17 @@
+#! /bin/bash
+
+cd ../rinex
+ls *o > fil0
+cut -c1-4 fil0 > fil1
+sort fil1 > fil2
+uniq fil2 > fil3
+awk '{print " "$1 "_gps iaap glrepu glts "}' fil3 >> ../tables/sites.defaults
+rm fil?
+
+cd ../igs_rinex                    
+ls *o > fil0
+cut -c1-4 fil0 > fil1
+sort fil1 > fil2
+uniq fil2 > fil3
+awk '{print " "$1 "_gps iaap ftprnx xstinfo glrepu glreps glts "}' fil3 >> ../tables/sites.defaults
+rm fil?

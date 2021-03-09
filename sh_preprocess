@@ -1,0 +1,226 @@
+#!/bin/bash
+
+################################################
+#######    CREACION DE DIRECTORIOS       #######
+################################################
+
+echo "====================="
+echo "  RUNNING PREPROCESS"
+echo "=====================" 
+
+pathp=$(pwd)
+
+mkdir brdc igs igs_rinex REPORTES rinex QC
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+echo "The brdc, igs, igs_rinex, REPORTS, rinex and QC directories has been created in: $pathp ..."
+
+find -name *.Z | awk '{print "cp "$1 " ./rinex"}' | sh
+
+################################################
+#########     CONVIRTIENDO RINEX      ##########
+################################################
+
+cd rinex
+
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+echo "Uncompressing..."
+uncompress -f *.Z
+
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+echo "Converting Hatanaka to Rinex..."
+
+ls *d | awk '{print "crx2rnx -f " $1}' | sh
+rm *d
+cp *o ../QC
+
+################################################
+#######     DATOS DEL PROYECTO           #######
+################################################
+echo "====================="
+echo "    Proyect data"
+echo "====================="
+read -p "Enter the year of the data: " anho
+read -p "Enter start day: " dia
+read -p "Enter end day: " diaf
+read -p "Enter amount of days: " ndias
+echo "Enter IGS bases"
+read -p "Each separated by a space: " igsrnx 
+
+################################################
+#######     DESCARGA DE NAVEGADORES      #######
+################################################
+
+echo "====================="
+echo "  Download brdc data"
+echo "====================="
+cd ../brdc 
+
+if [ -f $pathp/brdc/brdc"$dia"0.`expr substr $anho 3 2`n ];
+then echo "Brdc data already exists"; 
+	echo "skipping..."
+	echo "==>>"
+	echo "==>>>>"
+	echo "==>>>>>>"
+else
+	echo "sh_get_nav -archive sopac -yr $anho -doy $dia -ndays $ndias -ftp_prog wget"
+	sh_get_nav -archive sopac -yr $anho -doy $dia -ndays $ndias -ftp_prog wget
+fi
+
+################################################
+#######       DESCARGA DE ORBITAS        #######
+################################################
+
+cd ../igs 
+
+echo "===================================="
+echo "  Download precise orbits data"
+echo "===================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+echo "CPG loading..."
+read -t 2
+
+if [ -f $pathp/igs/ut1. ];
+then echo "orbits data already exists"; 
+	echo "skipping..."
+else
+	echo "sh_get_orbits -orbit igsf -archive cddis -yr $anho -doy $dia -ndays $ndias -ftp_prog ncftp"
+	sh_get_orbits -orbit igsf -archive cddis -yr $anho -doy $dia -ndays $ndias -ftp_prog ncftp
+fi
+
+################################################
+######  DESCARGA DE RINEX DE IGS - BASES  ######
+################################################
+
+cd  ../igs_rinex 
+echo "==================================="
+echo "   Download IGS Rinex data base"
+echo "==================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+read -t 2
+if [ -f $pathp/igs_rinex/*.log ];
+then echo "igs_rinex data already exists"; 
+	echo "skipping..."
+else
+	echo "CPG loading..."
+	echo "sh_get_rinex -archive sopac -yr $anho -doy $dia -ndays $ndias -ftp_prog wget -sites $igsrnx"
+	sh_get_rinex -archive sopac -yr $anho -doy $dia -ndays $ndias -ftp_prog wget -sites $igsrnx  
+fi
+
+################################################
+######        CONTROL DE CALIDAD          ######
+################################################
+
+cd ../QC
+echo "==================================="
+echo "         Quality control"
+echo "==================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+echo "Press enter to start quality control"
+read -t 5
+echo "CPG making quality control..."
+
+ls | awk '{print "teqc +qc " $1}' | sh
+rm *.iod *.ion *.mp1 *.mp2 *.sn1 *.sn2
+rm *o
+######################################################
+######pre gamit
+#####################################################
+cd ..
+
+sh_setup -yr $anho
+
+cd igs_rinex
+
+sh_rnx_sd #Luego ir a sites.defaults y comentar manualmente algunas lineas necesarias.
+
+mv *o ../rinex 
+
+cd ../tables
+echo "==================================="
+echo "      Updating base stations"
+echo "==================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+
+sh_upd_stnfo -l sd
+
+mv station.info.new station.info
+
+cd ../data
+
+#find -name *.Z | awk '{print "sh_upd_stnfo -files ../rinex/"tolower(substr($1,7,4))"*o"}' | sort | uniq > ../tables/sh_upd_stnfo_rinex
+find -name *.Z | awk '{print "sh_upd_stnfo -files ../rinex/"tolower(substr($1,7,11))"o"}'| sort | uniq > ../tables/sh_upd_stnfo_rinex
+
+cd ../tables
+
+chmod +x sh_upd_stnfo_rinex
+
+./sh_upd_stnfo_rinex
+
+cd ..
+echo "================================="
+echo "       Running sh_gamit"
+echo "================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+if [ $ndias = 1 ]; then
+        echo "sh_gamit -expt iaap -d $anho $dia -pres ELEV -orbit IGSF -copt x k p -dopts c ao -noftp"
+	sh_gamit -expt iaap -d $anho $dia -pres ELEV -orbit IGSF -copt x k p -dopts c ao -noftp
+else 
+	echo "sh_gamit -expt iaap -s $anho $dia $diaf -pres ELEV -orbit IGSF -copt x k p -dopts c ao -noftp"
+	sh_gamit -expt iaap -s $anho $dia $diaf -pres ELEV -orbit IGSF -copt x k p -dopts c ao -noftp
+fi
+#echo "Copiar y pegar los archivos globk.cmd y glorg.cmd dentro de gsoln"
+#read 
+
+#mv globk.cmd glorg.cmd gsoln
+cp -f /home/brayan/Procesos/gsoln/globk.cmd gsoln
+cp -f /home/brayan/Procesos/gsoln/glorg.cmd gsoln
+
+echo "================================="
+echo "        Running sh_glred"
+echo "================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+if [ $ndias = 1 ]; then
+        echo "sh_glred -d $anho $dia -net $igsrnx -expt iaap -opt F H G E C"
+	sh_glred -d $anho $dia -net $igsrnx -expt iaap -opt F H G E C
+else 
+	echo "sh_glred -s $anho $dia $anho $diaf -expt iaap -opt H G E"
+	sh_glred -s $anho $dia $anho $diaf -expt iaap -opt H G E
+fi
+
+cd gsoln
+
+ls ../glbf/*.glx >lgdl
+
+glred 6 PRT LOG lgdl globk.cmd
+
+sh_plot_pos -f PRT.org -p -d _$anho
+
+echo "==================================="
+echo "    Press enter to make reports"
+echo "==================================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+read -t 2
+
+find -name "psbase*" | sort | awk '{print "cp "$1" ../REPORTES"}' | sh
+find -type d -name "pos*"| sort | awk '{print "cp -r " $1 " ../REPORTES"}'|sh
+

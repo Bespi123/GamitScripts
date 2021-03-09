@@ -1,0 +1,8 @@
+#!/bin/bash
+array=($(ls *n))
+array1=($(ls *o))
+for ((i=0;i<${#array[@]}; i++)) do
+echo "teqc -nav "${array[i]}" +qc "${array1[i]} | sh
+done
+mkdir control_de_calidad
+mv *S control_de_calidad

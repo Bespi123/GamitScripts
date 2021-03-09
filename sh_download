@@ -1,0 +1,67 @@
+#!/bin/bash
+#modificado el 10/07/19
+echo "====================="
+echo "DATA DOWNLOAD: "
+echo "====================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+read -p "Enter data year: " anho
+read -p "Enter start day: " dia
+read -p "Enter amount of days: " ndias
+echo "Enter IGS base"
+read -p "areq=0/areg=1/other=2: " igsrnx 
+
+if [ $igsrnx = 0 ]; then
+        echo "Downloading data from areg..."
+	igsbase="areq"
+	arch="sopac"
+elif [ $igsrnx = 1 ]; then
+        echo "Downloading data from areq..."
+	igsbase="areg"
+	arch="unavco"
+elif [ $igsrnx = 2 ]; then
+        echo "Enter IGS base"
+	read -p "Each separated by space: " igsbase
+	read -p "sopac=0/unavco=1/other=2: " igsdown
+	if [ $igsdown = 0 ]; then
+		arch="sopac"
+	elif [ $igsdown = 1 ]; then
+		arch="unavco"
+	elif [ $igsdown = 2 ]; then
+		read -p "Enter archive: " arch
+	else
+        	echo "Incorrect value"
+	fi 
+else
+        echo "Incorrect value"
+fi
+echo "sh_get_rinex -archive $arch -yr $anho -doy $dia -ndays $ndias -ftp_prog wget -sites $igsbase"
+sh_get_rinex -archive $arch -yr $anho -doy $dia -ndays $ndias -ftp_prog wget -sites $igsbase
+
+echo "====================="
+echo "Compressing data.... "
+echo "====================="
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+find -name "*o" | sort | awk '{print "rnx2crx -f " $1}'
+find -name "*o" | sort | awk '{print "rnx2crx -f " $1}' | sh
+find -name "*d" | sort | awk '{print "compress -f " $1}'
+find -name "*d" | sort | awk '{print "compress -f " $1}' | sh
+find -name "*o" | sort | awk '{print "rm " $1}'
+find -name "*o" | sort | awk '{print "rm " $1}' | sh
+find -name "*.log" | sort | awk '{print "rm " $1}'
+find -name "*.log" | sort | awk '{print "rm " $1}' | sh
+
+echo "========================"
+echo "Creating directories... "
+echo "========================"
+echo "==>>"
+echo "==>>>>"
+echo "==>>>>>>"
+ls *.Z | awk '{print "mkdir " tolower(substr($1,5,3))}'
+ls *.Z | awk '{print "mkdir " tolower(substr($1,5,3))}'|sh
+ls *.Z | awk '{print "mv "$1" " tolower(substr($1,5,3))}'
+ls *.Z | awk '{print "mv "$1" " tolower(substr($1,5,3))}'|sh
+

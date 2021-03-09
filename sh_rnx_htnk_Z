@@ -1,0 +1,53 @@
+#!/bin/bash
+
+################################################
+# CONVERSION DE DATA CRUDA *.T01 y *.T02 AL    #
+################################################
+
+find -name *.T01 | awk '{print "mv "$1 " " toupper(substr($1,1,6))}' | sh
+find -name *.T02 | awk '{print "mv "$1 " " toupper(substr($1,1,6))}' | sh
+
+echo "=============================="
+echo "Convert .T0 to d.Z files..."
+echo "=============================="
+
+echo "Transforming .T0 to .DAT files..."
+echo ">>>"
+echo ">>>>>>>>>>>>"
+echo ">>>>>>>>>>>>>>>>>>>>"
+
+find -name *T01 | sort | awk '{print " runpkr00 -d " $1}' | sh
+find -name *T02 | sort | awk '{print " runpkr00 -d " $1}' | sh
+
+read -p "Enter data year: " anho
+read -p "Enter observer's name (with no spaces): " name
+
+
+
+find -name *.dat | sort > lista
+
+echo "Converting .DAT to RINEX..."
+echo ">>>"
+echo ">>>>>>>>>>>>"
+echo ">>>>>>>>>>>>>>>>>>>>"
+
+find -name *.dat | sort | awk '{print "teqc +nav " tolower(substr($1,1,13))"'0.`expr substr $anho 3 2`"n"' -O.int 5 +C2 -O.pe 0.0750 0.0 0.0 -O.px 1941764.7896 -5805845.9601 -1792210.3474 -O.dec 30 -O.ag IAAPP -O.o '$name' -O.mn 42229M001 -O.mo "toupper(substr($1,7,4))  " -O.an 1440925387 -O.at  \"TRM55971.00     TZGD\" -tr d " $1 " > "tolower(substr($1,1,13))"'0.`expr substr $anho 3 2`"o"'" }' lista | sh
+
+#find -name *.dat | sort | awk '{print "teqc +nav " tolower(substr($1,1,13))"'0.$anho"n"' -O.int 5 +C2 -O.pe 0.0750 0.0 0.0 -O.px 1941764.7896 -5805845.9601 -1792210.3474 -O.dec 30 -O.ag IAAPP -O.o DPG_B.Espinoza -O.mn 42229M001 -O.mo "toupper(substr($1,7,4))  " -O.an 1440925387 -O.at  \"TRM55971.00     TZGD\" -tr d " $1 " > "tolower(substr($1,1,13))"'0.$anho"o"'" }' lista | sh
+
+echo "Deleting *.T01, *.n and *.dat files..."
+
+
+find -name *T01 | sort | awk '{print "rm " $1}' | sh
+find -name *T02 | sort | awk '{print "rm " $1}' | sh
+find -name *n | sort | awk '{print "rm " $1}' | sh
+find -name *dat | sort | awk '{print "rm " $1}' | sh
+
+echo "Turning Rinex to Hatanaka..."
+
+
+find -name *o | sort | awk '{print "rnx2crx -f " $1}' | sh
+find -name *d | sort | awk '{print "compress -f " $1}' | sh
+#find -name *o | sort | awk '{print "rm " $1}' | sh
+rm -r lista
+find ./ -type d -empty -exec rmdir {} \;
